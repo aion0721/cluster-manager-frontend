@@ -4,9 +4,10 @@ import type { PortForwardCommandResponse } from '../types/user'
 
 type PortForwardCommandProps = {
   userId?: string
+  currentUserId: string
 }
 
-export function PortForwardCommand({ userId }: PortForwardCommandProps) {
+export function PortForwardCommand({ userId, currentUserId }: PortForwardCommandProps) {
   const [command, setCommand] = useState<PortForwardCommandResponse>()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -26,7 +27,7 @@ export function PortForwardCommand({ userId }: PortForwardCommandProps) {
       setCopied(false)
 
       try {
-        const response = await getPortForwardCommand(userId)
+        const response = await getPortForwardCommand(userId, currentUserId)
         if (!cancelled) {
           setCommand(response)
         }
@@ -47,7 +48,7 @@ export function PortForwardCommand({ userId }: PortForwardCommandProps) {
     return () => {
       cancelled = true
     }
-  }, [userId])
+  }, [currentUserId, userId])
 
   async function copyCommand() {
     if (!command?.command) {

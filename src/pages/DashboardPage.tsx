@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getProvisioningSteps } from '../api/provisioningSteps'
 import {
+  ApiError,
+} from '../api/client'
+import {
   deleteUser,
   getUser,
   getUsers,
@@ -12,10 +15,12 @@ import { ProvisioningStepsPanel } from '../components/ProvisioningStepsPanel'
 import { UserCreateForm } from '../components/UserCreateForm'
 import { UserDetail } from '../components/UserDetail'
 import { UserList } from '../components/UserList'
+import { useUser } from '../context/UserContext'
 import type { ProvisioningStep, ProvisioningStepStatus } from '../types/provisioning'
 import type { CreateUserRequest, UserResponse } from '../types/user'
 
 export function DashboardPage() {
+  const { currentUserId } = useUser()
   const [steps, setSteps] = useState<ProvisioningStep[]>([])
   const [stepStatuses, setStepStatuses] = useState<ProvisioningStepStatus[]>([])
   const [lastCreateRequest, setLastCreateRequest] = useState<CreateUserRequest>()
@@ -39,7 +44,7 @@ export function DashboardPage() {
     setError('')
 
     try {
-      const response = await getUsers()
+      const response = await getUsers(currentUserId)
       setUsers(response)
 
       if (selectUserId) {
@@ -48,14 +53,14 @@ export function DashboardPage() {
         setSelectedUserId(response[0].userId)
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load users.')
+      setError(adminErrorMessage(caught, 'Failed to load users.'))
     } finally {
       setUsersLoading(false)
     }
   }
 
   async function loadSteps() {
-    const response = await getProvisioningSteps()
+    const response = await getProvisioningSteps(currentUserId)
     const ordered = [...response].sort((a, b) => a.order - b.order)
     setSteps(ordered)
     return ordered
@@ -102,13 +107,13 @@ export function DashboardPage() {
         })
 
         try {
-          await runProvisioningStep(request.userId, step)
+          await runProvisioningStep(request.userId, step, currentUserId)
           patchStepStatus(step.key, {
             status: 'DONE',
             message: 'Completed.',
           })
         } catch (caught) {
-          const message = caught instanceof Error ? caught.message : 'Provisioning step failed.'
+          const message = adminErrorMessage(caught, 'Provisioning step failed.')
           patchStepStatus(step.key, {
             status: 'FAILED',
             error: message,
@@ -120,7 +125,7 @@ export function DashboardPage() {
 
       await loadUsers(request.userId)
     } catch (caught) {
-      setStepError(caught instanceof Error ? caught.message : 'Provisioning failed.')
+      setStepError(adminErrorMessage(caught, 'Provisioning failed.'))
     } finally {
       setProvisioningRunning(false)
     }
@@ -149,12 +154,12 @@ export function DashboardPage() {
     setError('')
 
     try {
-      await deleteUser(userId)
+      await deleteUser(userId, currentUserId)
       setSelectedUser(undefined)
       setSelectedUserId(undefined)
       await loadUsers()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to delete user.')
+      setError(adminErrorMessage(caught, 'Failed to delete user.'))
     } finally {
       setActionRunning(false)
     }
@@ -165,12 +170,12 @@ export function DashboardPage() {
     setError('')
 
     try {
-      await reconcileUser(userId)
+      await reconcileUser(userId, currentUserId)
       await loadUsers(userId)
-      const refreshed = await getUser(userId)
+      const refreshed = await getUser(userId, currentUserId)
       setSelectedUser(refreshed)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to reconcile user.')
+      setError(adminErrorMessage(caught, 'Failed to reconcile user.'))
     } finally {
       setActionRunning(false)
     }
@@ -178,10 +183,10 @@ export function DashboardPage() {
 
   useEffect(() => {
     void loadSteps().catch((caught) => {
-      setStepError(caught instanceof Error ? caught.message : 'Failed to load provisioning steps.')
+      setStepError(adminErrorMessage(caught, 'Failed to load provisioning steps.'))
     })
     void loadUsers()
-  }, [])
+  }, [currentUserId])
 
   useEffect(() => {
     let cancelled = false
@@ -196,14 +201,14 @@ export function DashboardPage() {
       setError('')
 
       try {
-        const response = await getUser(selectedUserId)
+        const response = await getUser(selectedUserId, currentUserId)
         if (!cancelled) {
           setSelectedUser(response)
         }
       } catch (caught) {
         if (!cancelled) {
           setSelectedUser(undefined)
-          setError(caught instanceof Error ? caught.message : 'Failed to load selected user.')
+          setError(adminErrorMessage(caught, 'Failed to load selected user.'))
         }
       } finally {
         if (!cancelled) {
@@ -217,7 +222,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [selectedUserId])
+  }, [currentUserId, selectedUserId])
 
   useEffect(() => {
     if (!selectedUserId) {
@@ -261,8 +266,16 @@ export function DashboardPage() {
           onDelete={handleDelete}
           onReconcile={handleReconcile}
         />
-        <PortForwardCommand userId={selectedUserId} />
+        <PortForwardCommand userId={selectedUserId} currentUserId={currentUserId} />
       </div>
     </div>
   )
+}
+
+function adminErrorMessage(caught: unknown, fallback: string) {
+  if (caught instanceof ApiError && caught.status === 403) {
+    return 'このユーザーIDでは管理操作できません。'
+  }
+
+  return caught instanceof Error ? caught.message : fallback
 }

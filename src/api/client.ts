@@ -24,7 +24,7 @@ export async function apiRequest<T>(
   options: ApiRequestOptions = {},
 ): Promise<T> {
   const headers = new Headers(options.headers)
-  const userId = options.userId ?? localStorage.getItem(USER_ID_STORAGE_KEY)
+  const userId = options.userId
 
   if (userId && !headers.has('X-User-Id')) {
     headers.set('X-User-Id', userId)

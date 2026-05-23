@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cluster-manager
+  namespace: cluster-manager-system
+spec:
+  rules:
+    - host: cluster-manager.rp.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: cluster-manager-backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cluster-manager-frontend
+                port:
+                  number: 80

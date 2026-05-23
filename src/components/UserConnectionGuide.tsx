@@ -1,5 +1,4 @@
-import type { FormEvent as FormEventType } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   getConnectionGuide,
   getKubectlSetupCommand,
@@ -13,34 +12,24 @@ import type {
   ServiceAccountTokenResponse,
 } from '../types/me'
 
-const userIdPattern = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
+type UserConnectionGuideProps = {
+  userId: string
+}
 
 type CopyTarget = 'portForward' | 'powershell' | 'bash' | 'token' | ''
 
-export function UserConnectionGuide() {
-  const [userId, setUserId] = useState('')
+export function UserConnectionGuide({ userId }: UserConnectionGuideProps) {
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse>()
   const [connectionGuide, setConnectionGuide] = useState<ConnectionGuide>()
   const [kubectlSetup, setKubectlSetup] = useState<KubectlSetupCommandResponse>()
   const [tokenResponse, setTokenResponse] = useState<ServiceAccountTokenResponse>()
-  const [showTokenPanel, setShowTokenPanel] = useState(false)
   const [loadingGuide, setLoadingGuide] = useState(false)
   const [loadingSetup, setLoadingSetup] = useState(false)
   const [loadingToken, setLoadingToken] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<CopyTarget>('')
 
-  function validateUserId() {
-    const normalizedUserId = userId.trim()
-    if (!userIdPattern.test(normalizedUserId)) {
-      throw new Error('userId must match ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$.')
-    }
-
-    return normalizedUserId
-  }
-
-  async function loadConnectionGuide(event?: FormEventType<HTMLFormElement>) {
-    event?.preventDefault()
+  async function loadConnectionGuide() {
     setLoadingGuide(true)
     setError('')
     setCopied('')
@@ -48,10 +37,9 @@ export function UserConnectionGuide() {
     setTokenResponse(undefined)
 
     try {
-      const normalizedUserId = validateUserId()
       const [meResponse, guideResponse] = await Promise.all([
-        getMe(normalizedUserId),
-        getConnectionGuide(normalizedUserId),
+        getMe(userId),
+        getConnectionGuide(userId),
       ])
       setCurrentUser(meResponse)
       setConnectionGuide(guideResponse)
@@ -70,8 +58,7 @@ export function UserConnectionGuide() {
     setCopied('')
 
     try {
-      const normalizedUserId = validateUserId()
-      const response = await getKubectlSetupCommand(normalizedUserId)
+      const response = await getKubectlSetupCommand(userId)
       setKubectlSetup(response)
     } catch (caught) {
       setKubectlSetup(undefined)
@@ -87,8 +74,7 @@ export function UserConnectionGuide() {
     setCopied('')
 
     try {
-      const normalizedUserId = validateUserId()
-      const response = await issueToken(normalizedUserId)
+      const response = await issueToken(userId)
       setTokenResponse(response)
     } catch (caught) {
       setTokenResponse(undefined)
@@ -103,34 +89,27 @@ export function UserConnectionGuide() {
     setCopied(target)
   }
 
+  useEffect(() => {
+    void loadConnectionGuide()
+  }, [userId])
+
   return (
     <section className="card connection-guide-card">
-      <div className="section-heading">
-        <p className="eyebrow">User Connection Guide</p>
-        <h2>接続ガイド</h2>
-        <p>
-          MVP用の簡易ユーザー指定です。認証ではありません。Backend へは
-          `X-User-Id` ヘッダーを付けて API を呼び出します。
-        </p>
+      <div className="section-heading split-heading">
+        <div>
+          <p className="eyebrow">User Connection Guide</p>
+          <h2>接続ガイド</h2>
+          <p>現在のユーザーID: {userId}</p>
+        </div>
+        <button type="button" className="primary-button" onClick={loadConnectionGuide} disabled={loadingGuide}>
+          {loadingGuide ? '取得中' : '接続情報を取得'}
+        </button>
       </div>
 
-      <form className="connection-form" onSubmit={loadConnectionGuide}>
-        <label>
-          <span>X-User-Id</span>
-          <input
-            value={userId}
-            onChange={(event) => {
-              setUserId(event.target.value)
-              setError('')
-            }}
-            placeholder="koba"
-            autoComplete="off"
-          />
-        </label>
-        <button type="submit" className="primary-button" disabled={loadingGuide}>
-          {loadingGuide ? '取得中' : '自分の接続情報を取得'}
-        </button>
-      </form>
+      <p className="muted-text">
+        MVP用の簡易ユーザー指定です。認証ではありません。token と kubectl setup command は保存されません。
+        kubectl や OS コマンドはこの画面から実行しません。
+      </p>
 
       {error ? <p className="error-banner">{error}</p> : null}
 
@@ -165,7 +144,7 @@ export function UserConnectionGuide() {
           <div className="section-heading split-heading">
             <div>
               <h2>port-forward command</h2>
-              <p>Frontend/Backend では実行しません。利用者のローカル端末で実行してください。</p>
+              <p>利用者のローカル端末で実行してください。</p>
             </div>
             <button
               type="button"
@@ -179,16 +158,6 @@ export function UserConnectionGuide() {
               {copied === 'portForward' ? 'コピーしました' : 'コピー'}
             </button>
           </div>
-          <dl className="detail-grid compact-detail">
-            <div>
-              <dt>Namespace</dt>
-              <dd>{connectionGuide?.namespace ?? '-'}</dd>
-            </div>
-            <div>
-              <dt>ServiceAccount</dt>
-              <dd>{connectionGuide?.serviceAccount ?? '-'}</dd>
-            </div>
-          </dl>
           <pre className="command-box">
             {connectionGuide?.portForwardCommand ?? '接続情報を取得すると表示されます。'}
           </pre>
@@ -198,7 +167,7 @@ export function UserConnectionGuide() {
           <div className="section-heading split-heading">
             <div>
               <h2>kubectl setup command</h2>
-              <p>token は短命であり、localStorage/sessionStorage には保存されません。</p>
+              <p>短命 token を含むため、必要なときだけ生成してください。</p>
             </div>
             <button
               type="button"
@@ -230,7 +199,6 @@ export function UserConnectionGuide() {
                   <dd>{kubectlSetup.expiresAt}</dd>
                 </div>
               </dl>
-
               <CommandBlock
                 title="PowerShell"
                 value={kubectlSetup.powershell}
@@ -245,14 +213,12 @@ export function UserConnectionGuide() {
               />
             </div>
           ) : (
-            <p className="muted-text">必要なときだけ POST で生成して表示します。</p>
+            <p className="muted-text">生成すると PowerShell と bash 用のコマンドが表示されます。</p>
           )}
         </section>
 
-        <details className="sub-panel token-details" open={showTokenPanel}>
-          <summary onClick={() => setShowTokenPanel((current) => !current)}>
-            短命tokenを個別に表示
-          </summary>
+        <details className="sub-panel token-details">
+          <summary>短命tokenを個別に表示</summary>
           <p className="muted-text">通常は kubectl setup command を使ってください。token は保存されません。</p>
           <button
             type="button"

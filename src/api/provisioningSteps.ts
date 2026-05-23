@@ -1,6 +1,6 @@
 import { apiRequest } from './client'
 import type { ProvisioningStep } from '../types/provisioning'
 
-export function getProvisioningSteps() {
-  return apiRequest<ProvisioningStep[]>('/api/provisioning-steps')
+export function getProvisioningSteps(userId?: string) {
+  return apiRequest<ProvisioningStep[]>('/api/provisioning-steps', { userId })
 }
