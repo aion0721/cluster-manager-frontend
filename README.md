@@ -45,20 +45,38 @@ Open:
 http://localhost:8081
 ```
 
-## Build And Push For Raspberry Pi / k3s
+## Build And Load Into Raspberry Pi / k3s
 
-Example using Docker Desktop buildx for `linux/arm64` and GHCR:
+Build the image locally, save it as a tar archive, copy it to the k3s node, and import it into k3s containerd.
+
+On the machine where Docker is available:
 
 ```powershell
-docker buildx build `
-  --platform linux/arm64 `
-  -f container/Dockerfile `
-  -t ghcr.io/<your-user>/cluster-manager-frontend:0.1.0 `
-  --push `
-  .
+docker build -f container/Dockerfile -t cluster-manager-frontend:0.1.0 .
+docker save cluster-manager-frontend:0.1.0 -o cluster-manager-frontend_0.1.0.tar
 ```
 
-Update `container/k8s/frontend.yaml` with the pushed image name before deploying.
+Copy the archive to the Raspberry Pi / k3s node:
+
+```powershell
+scp .\cluster-manager-frontend_0.1.0.tar <user>@<pi-host>:/tmp/
+```
+
+On the k3s node:
+
+```bash
+sudo k3s ctr images import /tmp/cluster-manager-frontend_0.1.0.tar
+sudo k3s ctr images ls | grep cluster-manager-frontend
+```
+
+The frontend manifest uses this local image name:
+
+```yaml
+image: cluster-manager-frontend:0.1.0
+imagePullPolicy: IfNotPresent
+```
+
+`IfNotPresent` lets k3s use the imported local image without pulling from an external registry.
 
 ## Deploy To k3s
 

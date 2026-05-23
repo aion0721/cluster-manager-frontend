@@ -22,7 +22,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/<your-user>/cluster-manager-frontend:0.1.0
+          image: cluster-manager-frontend:0.1.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           resources:
