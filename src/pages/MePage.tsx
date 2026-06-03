@@ -1,5 +1,5 @@
 import { UserConnectionGuide } from '../components/UserConnectionGuide'
-import { useUser } from '../context/UserContext'
+import { useUser } from '../context/useUser'
 
 export function MePage() {
   const { currentUserId } = useUser()

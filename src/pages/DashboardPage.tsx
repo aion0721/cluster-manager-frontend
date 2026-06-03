@@ -15,7 +15,7 @@ import { ProvisioningStepsPanel } from '../components/ProvisioningStepsPanel'
 import { UserCreateForm } from '../components/UserCreateForm'
 import { UserDetail } from '../components/UserDetail'
 import { UserList } from '../components/UserList'
-import { useUser } from '../context/UserContext'
+import { useUser } from '../context/useUser'
 import type { ProvisioningStep, ProvisioningStepStatus } from '../types/provisioning'
 import type { CreateUserRequest, UserResponse } from '../types/user'
 
@@ -51,6 +51,9 @@ export function DashboardPage() {
         setSelectedUserId(selectUserId)
       } else if (!selectedUserId && response[0]) {
         setSelectedUserId(response[0].userId)
+      } else if (selectedUserId && !response.some((user) => user.userId === selectedUserId)) {
+        setSelectedUserId(undefined)
+        setSelectedUser(undefined)
       }
     } catch (caught) {
       setError(adminErrorMessage(caught, 'Failed to load users.'))
@@ -182,18 +185,56 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
-    void loadSteps().catch((caught) => {
-      setStepError(adminErrorMessage(caught, 'Failed to load provisioning steps.'))
+    let cancelled = false
+
+    void Promise.resolve().then(async () => {
+      setUsersLoading(true)
+      setError('')
+
+      try {
+        const [stepsResponse, usersResponse] = await Promise.all([
+          getProvisioningSteps(currentUserId),
+          getUsers(currentUserId),
+        ])
+
+        if (cancelled) {
+          return
+        }
+
+        setSteps([...stepsResponse].sort((a, b) => a.order - b.order))
+        setUsers(usersResponse)
+        setSelectedUserId((currentSelectedUserId) => {
+          if (currentSelectedUserId && usersResponse.some((user) => user.userId === currentSelectedUserId)) {
+            return currentSelectedUserId
+          }
+
+          return usersResponse[0]?.userId
+        })
+      } catch (caught) {
+        if (!cancelled) {
+          setError(adminErrorMessage(caught, 'Failed to load users.'))
+          setStepError(adminErrorMessage(caught, 'Failed to load provisioning steps.'))
+        }
+      } finally {
+        if (!cancelled) {
+          setUsersLoading(false)
+        }
+      }
     })
-    void loadUsers()
+
+    return () => {
+      cancelled = true
+    }
   }, [currentUserId])
 
   useEffect(() => {
     let cancelled = false
 
-    async function loadSelectedUser() {
+    void Promise.resolve().then(async () => {
       if (!selectedUserId) {
-        setSelectedUser(undefined)
+        if (!cancelled) {
+          setSelectedUser(undefined)
+        }
         return
       }
 
@@ -215,25 +256,12 @@ export function DashboardPage() {
           setDetailLoading(false)
         }
       }
-    }
-
-    void loadSelectedUser()
+    })
 
     return () => {
       cancelled = true
     }
   }, [currentUserId, selectedUserId])
-
-  useEffect(() => {
-    if (!selectedUserId) {
-      return
-    }
-
-    if (!users.some((user) => user.userId === selectedUserId)) {
-      setSelectedUserId(undefined)
-      setSelectedUser(undefined)
-    }
-  }, [selectedUserId, users])
 
   return (
     <div className="dashboard-grid">

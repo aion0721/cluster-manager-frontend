@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getProvisioningSteps } from '../api/provisioningSteps'
 import { runProvisioningStep } from '../api/users'
-import { useUser } from '../context/UserContext'
+import { useUser } from '../context/useUser'
 import type { ProvisioningStep, ProvisioningStepStatus } from '../types/provisioning'
 import type { CreateUserRequest } from '../types/user'
 import { ProvisioningStepsPanel } from './ProvisioningStepsPanel'
@@ -103,9 +103,23 @@ export function AdminProvisioningSection() {
   }
 
   useEffect(() => {
-    void loadSteps().catch((caught) => {
-      setError(caught instanceof Error ? caught.message : 'Failed to load provisioning steps.')
-    })
+    let cancelled = false
+
+    void getProvisioningSteps(currentUserId)
+      .then((response) => {
+        if (!cancelled) {
+          setSteps([...response].sort((a, b) => a.order - b.order))
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : 'Failed to load provisioning steps.')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [currentUserId])
 
   return (

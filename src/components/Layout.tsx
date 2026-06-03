@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useUser } from '../context/UserContext'
+import { useUser } from '../context/useUser'
 
 type LayoutProps = {
   children: ReactNode

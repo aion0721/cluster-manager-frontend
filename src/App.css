@@ -352,6 +352,16 @@ button:disabled {
   color: #b91c1c;
 }
 
+.status-pill.ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

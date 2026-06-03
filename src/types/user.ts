@@ -1,3 +1,5 @@
+import type { DevcontainerEndpoint, ProvisioningMode } from './me'
+
 export type CreateUserRequest = {
   userId: string
   displayName: string
@@ -7,6 +9,8 @@ export type UserResponse = {
   userId: string
   displayName?: string
   namespace: string
+  mode?: ProvisioningMode
+  devcontainerEndpoint?: DevcontainerEndpoint | null
   phase?: string
   serviceAccount?: string
   deployment?: string

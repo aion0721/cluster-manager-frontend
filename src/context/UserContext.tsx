@@ -1,14 +1,7 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { USER_ID_STORAGE_KEY } from '../api/client'
-
-type UserContextValue = {
-  currentUserId: string
-  setCurrentUserId: (userId: string) => void
-  clearCurrentUserId: () => void
-}
-
-const UserContext = createContext<UserContextValue | undefined>(undefined)
+import { UserContext } from './userContextValue'
 
 type UserProviderProps = {
   children: ReactNode
@@ -35,13 +28,4 @@ export function UserProvider({ children }: UserProviderProps) {
   )
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
-}
-
-export function useUser() {
-  const value = useContext(UserContext)
-  if (!value) {
-    throw new Error('useUser must be used within UserProvider.')
-  }
-
-  return value
 }

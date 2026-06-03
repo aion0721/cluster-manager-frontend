@@ -1,7 +1,20 @@
+export type ProvisioningMode = 'namespace' | 'container-only'
+
+export type DevcontainerEndpoint = {
+  service?: string
+  serviceType?: string
+  servicePort?: number
+  nodePort?: number | null
+  sshHost?: string
+  sshCommand?: string
+}
+
 export type CurrentUserResponse = {
   userId: string
   displayName?: string
   namespace: string
+  mode?: ProvisioningMode
+  devcontainerEndpoint?: DevcontainerEndpoint | null
   phase?: string
   serviceAccount?: string
   deployment?: string
@@ -13,7 +26,13 @@ export type CurrentUserResponse = {
 export type ConnectionGuide = {
   namespace: string
   serviceAccount: string
-  portForwardCommand: string
+  portForwardCommand?: string | null
+  service?: string
+  serviceType?: string
+  servicePort?: number
+  nodePort?: number | null
+  sshHost?: string
+  sshCommand?: string
 }
 
 export type ServiceAccountTokenResponse = {

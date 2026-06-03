@@ -59,6 +59,10 @@ export function UserDetail({
           <dd>{user.namespace}</dd>
         </div>
         <div>
+          <dt>mode</dt>
+          <dd>{user.mode ?? '-'}</dd>
+        </div>
+        <div>
           <dt>serviceAccount</dt>
           <dd>{user.serviceAccount ?? '-'}</dd>
         </div>
@@ -78,6 +82,18 @@ export function UserDetail({
           <dt>createdAt</dt>
           <dd>{user.createdAt ?? '-'}</dd>
         </div>
+        {user.mode === 'container-only' ? (
+          <>
+            <div>
+              <dt>nodePort</dt>
+              <dd>{user.devcontainerEndpoint?.nodePort ?? '-'}</dd>
+            </div>
+            <div>
+              <dt>sshHost</dt>
+              <dd>{user.devcontainerEndpoint?.sshHost ?? '-'}</dd>
+            </div>
+          </>
+        ) : null}
       </dl>
     </section>
   )

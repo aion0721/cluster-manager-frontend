@@ -16,7 +16,7 @@ type UserConnectionGuideProps = {
   userId: string
 }
 
-type CopyTarget = 'portForward' | 'powershell' | 'bash' | 'token' | ''
+type CopyTarget = 'portForward' | 'ssh' | 'powershell' | 'bash' | 'token' | ''
 
 export function UserConnectionGuide({ userId }: UserConnectionGuideProps) {
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse>()
@@ -90,8 +90,55 @@ export function UserConnectionGuide({ userId }: UserConnectionGuideProps) {
   }
 
   useEffect(() => {
-    void loadConnectionGuide()
+    let cancelled = false
+
+    void Promise.resolve().then(async () => {
+      setLoadingGuide(true)
+      setError('')
+      setCopied('')
+      setKubectlSetup(undefined)
+      setTokenResponse(undefined)
+
+      try {
+        const [meResponse, guideResponse] = await Promise.all([
+          getMe(userId),
+          getConnectionGuide(userId),
+        ])
+
+        if (!cancelled) {
+          setCurrentUser(meResponse)
+          setConnectionGuide(guideResponse)
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setCurrentUser(undefined)
+          setConnectionGuide(undefined)
+          setError(caught instanceof Error ? caught.message : 'Failed to load connection guide.')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingGuide(false)
+        }
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [userId])
+
+  const mode = currentUser?.mode ?? 'namespace'
+  const endpoint = currentUser?.devcontainerEndpoint
+  const nodePortService = {
+    service: connectionGuide?.service ?? endpoint?.service,
+    serviceType: connectionGuide?.serviceType ?? endpoint?.serviceType,
+    servicePort: connectionGuide?.servicePort ?? endpoint?.servicePort,
+    nodePort: connectionGuide?.nodePort ?? endpoint?.nodePort,
+    sshHost: connectionGuide?.sshHost ?? endpoint?.sshHost,
+    sshCommand: connectionGuide?.sshCommand ?? endpoint?.sshCommand,
+  }
+  const isContainerOnly = mode === 'container-only'
+  const isServiceReady = Boolean(nodePortService.nodePort)
 
   return (
     <section className="card connection-guide-card">
@@ -128,6 +175,10 @@ export function UserConnectionGuide({ userId }: UserConnectionGuideProps) {
               <dd>{currentUser?.namespace ?? '-'}</dd>
             </div>
             <div>
+              <dt>Mode</dt>
+              <dd>{currentUser?.mode ?? '-'}</dd>
+            </div>
+            <div>
               <dt>ServiceAccount</dt>
               <dd>{currentUser?.serviceAccount ?? '-'}</dd>
             </div>
@@ -140,28 +191,77 @@ export function UserConnectionGuide({ userId }: UserConnectionGuideProps) {
           </dl>
         </section>
 
-        <section className="sub-panel">
-          <div className="section-heading split-heading">
-            <div>
-              <h2>port-forward command</h2>
-              <p>利用者のローカル端末で実行してください。</p>
+        {isContainerOnly ? (
+          <section className="sub-panel">
+            <div className="section-heading split-heading">
+              <div>
+                <h2>NodePort Service</h2>
+                <p>SSH 接続用の Service 情報です。</p>
+              </div>
+              <span className={`status-pill ${isServiceReady ? 'ready' : 'pending'}`}>
+                {isServiceReady ? 'Service準備完了' : 'Service準備中'}
+              </span>
             </div>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() =>
-                connectionGuide?.portForwardCommand &&
-                copyText(connectionGuide.portForwardCommand, 'portForward')
-              }
-              disabled={!connectionGuide?.portForwardCommand}
-            >
-              {copied === 'portForward' ? 'コピーしました' : 'コピー'}
-            </button>
-          </div>
-          <pre className="command-box">
-            {connectionGuide?.portForwardCommand ?? '接続情報を取得すると表示されます。'}
-          </pre>
-        </section>
+
+            <dl className="detail-grid">
+              <div>
+                <dt>Namespace</dt>
+                <dd>{connectionGuide?.namespace ?? currentUser?.namespace ?? '-'}</dd>
+              </div>
+              <div>
+                <dt>Service</dt>
+                <dd>{nodePortService.service ?? '-'}</dd>
+              </div>
+              <div>
+                <dt>Service Type</dt>
+                <dd>{nodePortService.serviceType ?? '-'}</dd>
+              </div>
+              <div>
+                <dt>Service Port</dt>
+                <dd>{nodePortService.servicePort ?? '-'}</dd>
+              </div>
+              <div>
+                <dt>NodePort</dt>
+                <dd>{nodePortService.nodePort ?? '-'}</dd>
+              </div>
+              <div>
+                <dt>SSH Host</dt>
+                <dd>{nodePortService.sshHost ?? '-'}</dd>
+              </div>
+            </dl>
+
+            <CommandBlock
+              title="SSH Command"
+              value={nodePortService.sshCommand ?? 'Service の準備が完了すると表示されます。'}
+              copied={copied === 'ssh'}
+              onCopy={() => nodePortService.sshCommand && copyText(nodePortService.sshCommand, 'ssh')}
+              disabled={!nodePortService.sshCommand}
+            />
+          </section>
+        ) : (
+          <section className="sub-panel">
+            <div className="section-heading split-heading">
+              <div>
+                <h2>port-forward command</h2>
+                <p>利用者のローカル端末で実行してください。</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() =>
+                  connectionGuide?.portForwardCommand &&
+                  copyText(connectionGuide.portForwardCommand, 'portForward')
+                }
+                disabled={!connectionGuide?.portForwardCommand}
+              >
+                {copied === 'portForward' ? 'コピーしました' : 'コピー'}
+              </button>
+            </div>
+            <pre className="command-box">
+              {connectionGuide?.portForwardCommand ?? '接続情報を取得すると表示されます。'}
+            </pre>
+          </section>
+        )}
 
         <section className="sub-panel">
           <div className="section-heading split-heading">
@@ -264,14 +364,15 @@ type CommandBlockProps = {
   value: string
   copied: boolean
   onCopy: () => void
+  disabled?: boolean
 }
 
-function CommandBlock({ title, value, copied, onCopy }: CommandBlockProps) {
+function CommandBlock({ title, value, copied, onCopy, disabled = false }: CommandBlockProps) {
   return (
     <div className="command-block">
       <div className="token-heading">
         <span>{title}</span>
-        <button type="button" className="secondary-button" onClick={onCopy}>
+        <button type="button" className="secondary-button" onClick={onCopy} disabled={disabled}>
           {copied ? 'コピーしました' : 'コピー'}
         </button>
       </div>
