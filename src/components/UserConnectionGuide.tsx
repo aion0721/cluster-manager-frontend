@@ -5,6 +5,7 @@ import {
   getMe,
   issueToken,
 } from '../api/me'
+import { isKeycloakAuthMode } from '../auth/config'
 import type {
   ConnectionGuide,
   CurrentUserResponse,
@@ -154,7 +155,8 @@ export function UserConnectionGuide({ userId }: UserConnectionGuideProps) {
       </div>
 
       <p className="muted-text">
-        MVP用の簡易ユーザー指定です。認証ではありません。token と kubectl setup command は保存されません。
+        {isKeycloakAuthMode ? 'Keycloakで認証済みのユーザーとして接続情報を取得します。' : 'MVP用の簡易ユーザー指定です。認証ではありません。'}
+        token と kubectl setup command は保存されません。
         kubectl や OS コマンドはこの画面から実行しません。
       </p>
 

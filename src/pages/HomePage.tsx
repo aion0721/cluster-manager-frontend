@@ -6,7 +6,7 @@ import { useUser } from '../context/useUser'
 const userIdPattern = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/
 
 export function HomePage() {
-  const { currentUserId, setCurrentUserId } = useUser()
+  const { authMode, authReady, currentUserId, login, setCurrentUserId } = useUser()
   const [userId, setUserId] = useState(currentUserId)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -27,9 +27,57 @@ export function HomePage() {
     navigate(path)
   }
 
+  async function enterWithKeycloak(path: '/me' | '/admin') {
+    if (currentUserId) {
+      navigate(path)
+      return
+    }
+    await login(path)
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     enter('/me')
+  }
+
+  if (authMode === 'keycloak') {
+    return (
+      <div className="entry-layout">
+        <section className="card entry-card">
+          <div className="section-heading">
+            <p className="eyebrow">Keycloak Login</p>
+            <h2>Cluster Manager</h2>
+            <p>
+              Keycloakでログインしてから、ユーザー環境と管理機能にアクセスします。
+            </p>
+          </div>
+
+          {!authReady ? <p className="muted-text">認証状態を確認しています。</p> : null}
+          {currentUserId ? (
+            <p className="muted-text">ログイン中: {currentUserId}</p>
+          ) : null}
+
+          <div className="button-row">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => enterWithKeycloak('/me')}
+              disabled={!authReady}
+            >
+              Go to Me
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => enterWithKeycloak('/admin')}
+              disabled={!authReady}
+            >
+              Go to Admin
+            </button>
+          </div>
+        </section>
+      </div>
+    )
   }
 
   return (

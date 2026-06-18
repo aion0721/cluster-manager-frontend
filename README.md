@@ -16,6 +16,40 @@ yarn dev
 
 Backend is expected to run on `http://localhost:8080` during development.
 
+## Authentication
+
+The frontend supports the same two authentication modes as the backend.
+
+Simple mode keeps the MVP user selector and sends `X-User-Id` to the backend:
+
+```powershell
+$env:VITE_AUTH_MODE="simple"
+yarn dev
+```
+
+Keycloak mode redirects the user to Keycloak, stores the returned OIDC access token in `sessionStorage`, and sends API requests with `Authorization: Bearer ...`:
+
+```powershell
+$env:VITE_AUTH_MODE="keycloak"
+$env:VITE_KEYCLOAK_AUTH_SERVER_URL="https://keycloak.example.com/realms/dev"
+$env:VITE_KEYCLOAK_CLIENT_ID="cluster-manager"
+yarn dev
+```
+
+For local development, register this redirect URI in the Keycloak client:
+
+```text
+http://localhost:5173/
+```
+
+For k3s/Ingress, register the public frontend origin:
+
+```text
+http://cluster-manager.rp.local/
+```
+
+The backend should use matching settings such as `CLUSTER_MANAGER_AUTH_MODE=keycloak`, `QUARKUS_OIDC_AUTH_SERVER_URL`, and `QUARKUS_OIDC_CLIENT_ID`.
+
 ## Container Files
 
 Container and k3s deployment files are kept under `container/` so the frontend app source stays separate:
@@ -142,4 +176,5 @@ The Ingress routes:
 - The frontend does not execute kubectl or OS commands.
 - Backend API calls use relative `/api/...` paths.
 - Tokens, kubectl setup commands, and bash/PowerShell command strings are not stored in localStorage/sessionStorage and are not embedded into the container image.
-- The MVP stores only `userId` in sessionStorage.
+- Simple auth mode stores only `userId` in sessionStorage.
+- Keycloak auth mode stores the OIDC access token in sessionStorage for the current browser tab/session and sends it only to Backend API requests.

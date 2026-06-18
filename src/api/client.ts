@@ -1,3 +1,5 @@
+import { isSimpleAuthMode } from '../auth/config'
+
 type ApiRequestOptions = {
   method?: string
   body?: unknown
@@ -6,6 +8,12 @@ type ApiRequestOptions = {
 }
 
 export const USER_ID_STORAGE_KEY = 'cluster-manager.userId'
+
+let accessTokenProvider: (() => string | undefined) | undefined
+
+export function setAccessTokenProvider(provider: () => string | undefined) {
+  accessTokenProvider = provider
+}
 
 export class ApiError extends Error {
   status: number
@@ -26,8 +34,13 @@ export async function apiRequest<T>(
   const headers = new Headers(options.headers)
   const userId = options.userId
 
-  if (userId && !headers.has('X-User-Id')) {
+  if (isSimpleAuthMode && userId && !headers.has('X-User-Id')) {
     headers.set('X-User-Id', userId)
+  }
+
+  const accessToken = accessTokenProvider?.()
+  if (!isSimpleAuthMode && accessToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
   if (options.body !== undefined && !headers.has('Content-Type')) {

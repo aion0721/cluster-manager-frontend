@@ -7,12 +7,14 @@ type LayoutProps = {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { currentUserId, clearCurrentUserId } = useUser()
+  const { authMode, currentUserId, logout } = useUser()
   const navigate = useNavigate()
 
   function handleLogout() {
-    clearCurrentUserId()
-    navigate('/')
+    logout()
+    if (authMode === 'simple') {
+      navigate('/')
+    }
   }
 
   return (
@@ -23,6 +25,7 @@ export function Layout({ children }: LayoutProps) {
           <h1>Developer Environment Access</h1>
           <p className="header-user">
             Current userId: <strong>{currentUserId || 'not set'}</strong>
+            <span> / auth: {authMode}</span>
           </p>
         </div>
         <nav className="app-nav" aria-label="Primary">
@@ -31,7 +34,7 @@ export function Layout({ children }: LayoutProps) {
           <NavLink to="/admin">Admin</NavLink>
           {currentUserId ? (
             <button type="button" className="secondary-button" onClick={handleLogout}>
-              Change userId
+              {authMode === 'keycloak' ? 'Logout' : 'Change userId'}
             </button>
           ) : null}
         </nav>
