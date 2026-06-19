@@ -43,6 +43,7 @@ export function UserProvider({ children }: UserProviderProps) {
           return
         }
 
+        setAccessTokenProvider(() => tokenSet.accessToken)
         setAccessToken(tokenSet.accessToken)
         setIdToken(tokenSet.idToken)
         setCurrentUserIdState(getUserIdFromToken(tokenSet.accessToken))
@@ -69,6 +70,7 @@ export function UserProvider({ children }: UserProviderProps) {
   const clearCurrentUserId = useCallback(() => {
     if (isKeycloakAuthMode) {
       clearStoredTokenSet()
+      setAccessTokenProvider(() => undefined)
       setAccessToken(undefined)
       setIdToken(undefined)
       setCurrentUserIdState('')
@@ -87,6 +89,7 @@ export function UserProvider({ children }: UserProviderProps) {
 
   const logout = useCallback(() => {
     if (isKeycloakAuthMode) {
+      setAccessTokenProvider(() => undefined)
       logoutFromKeycloak(idToken)
       setAccessToken(undefined)
       setIdToken(undefined)
