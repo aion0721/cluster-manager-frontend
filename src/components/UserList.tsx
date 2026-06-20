@@ -20,7 +20,7 @@ export function UserList({
       <div className="section-heading split-heading">
         <div>
           <h2>Users</h2>
-          <p>{users.length} environments</p>
+          <p>{users.length} users</p>
         </div>
         <button type="button" className="secondary-button" onClick={onRefresh} disabled={loading}>
           Refresh
@@ -33,7 +33,7 @@ export function UserList({
             <tr>
               <th>userId</th>
               <th>namespace</th>
-              <th>status</th>
+              <th>serviceAccount</th>
             </tr>
           </thead>
           <tbody>
@@ -45,9 +45,7 @@ export function UserList({
               >
                 <td>{user.userId}</td>
                 <td>{user.namespace}</td>
-                <td>
-                  <span className="status-pill">{user.status ?? user.phase ?? 'UNKNOWN'}</span>
-                </td>
+                <td>{user.serviceAccount ?? '-'}</td>
               </tr>
             ))}
             {!loading && users.length === 0 ? (

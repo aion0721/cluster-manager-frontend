@@ -20,7 +20,7 @@ export function UserDetail({
       <section className="card">
         <div className="section-heading">
           <h2>User Detail</h2>
-          <p>Select a user to view environment resources.</p>
+          <p>Select a user to view identity and RBAC resources.</p>
         </div>
       </section>
     )
@@ -67,14 +67,6 @@ export function UserDetail({
           <dd>{user.serviceAccount ?? '-'}</dd>
         </div>
         <div>
-          <dt>deployment</dt>
-          <dd>{user.deployment ?? '-'}</dd>
-        </div>
-        <div>
-          <dt>service</dt>
-          <dd>{user.service ?? '-'}</dd>
-        </div>
-        <div>
           <dt>status</dt>
           <dd>{user.status ?? user.phase ?? '-'}</dd>
         </div>
@@ -82,18 +74,6 @@ export function UserDetail({
           <dt>createdAt</dt>
           <dd>{user.createdAt ?? '-'}</dd>
         </div>
-        {user.mode === 'container-only' ? (
-          <>
-            <div>
-              <dt>nodePort</dt>
-              <dd>{user.devcontainerEndpoint?.nodePort ?? '-'}</dd>
-            </div>
-            <div>
-              <dt>sshHost</dt>
-              <dd>{user.devcontainerEndpoint?.sshHost ?? '-'}</dd>
-            </div>
-          </>
-        ) : null}
       </dl>
     </section>
   )

@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import type { CreateUserRequest } from '../types/user'
+import type { UserResponse } from '../types/user'
 
-type UserCreateFormProps = {
+type EnvironmentCreatePanelProps = {
+  users: UserResponse[]
   disabled?: boolean
-  onCreate: (request: CreateUserRequest) => Promise<void>
+  onCreate: (userId: string) => Promise<void>
 }
 
-export function UserCreateForm({ disabled = false, onCreate }: UserCreateFormProps) {
+export function EnvironmentCreatePanel({
+  users,
+  disabled = false,
+  onCreate,
+}: EnvironmentCreatePanelProps) {
   const [userId, setUserId] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState('')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -22,40 +26,34 @@ export function UserCreateForm({ disabled = false, onCreate }: UserCreateFormPro
       return
     }
 
-    await onCreate({
-      userId: trimmedUserId,
-      displayName: displayName.trim(),
-    })
+    await onCreate(trimmedUserId)
   }
 
   return (
     <section className="card">
       <div className="section-heading">
-        <h2>Create User</h2>
-        <p>Create the user identity, ServiceAccount, and RBAC resources.</p>
+        <h2>Create Pod</h2>
+        <p>Create the dev-container pod and service for an existing user.</p>
       </div>
       <form className="form-stack" onSubmit={handleSubmit}>
         <label>
           <span>userId</span>
           <input
+            list="admin-user-options"
             value={userId}
             onChange={(event) => setUserId(event.target.value)}
             placeholder="alice"
             disabled={disabled}
           />
         </label>
-        <label>
-          <span>displayName</span>
-          <input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Alice"
-            disabled={disabled}
-          />
-        </label>
+        <datalist id="admin-user-options">
+          {users.map((user) => (
+            <option key={user.userId} value={user.userId} />
+          ))}
+        </datalist>
         {error ? <p className="error-text">{error}</p> : null}
         <button className="primary-button" type="submit" disabled={disabled}>
-          Create
+          Create Pod
         </button>
       </form>
     </section>

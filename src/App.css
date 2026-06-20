@@ -34,6 +34,35 @@
   grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
 }
 
+.admin-page {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-tabs {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px 0;
+}
+
+.admin-tabs a {
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+
+.admin-tabs a.active,
+.admin-tabs a:hover {
+  background: #ffffff;
+  border-color: var(--border);
+  border-bottom-color: #ffffff;
+  color: var(--text);
+}
+
 .eyebrow {
   color: var(--accent);
   font-size: 13px;
@@ -357,6 +386,22 @@ button:disabled {
   color: #166534;
 }
 
+.status-pill.user-ready {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.status-pill.partial {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pill.missing,
+.status-pill.deleting {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .status-pill.pending {
   background: #fef3c7;
   color: #92400e;
@@ -474,6 +519,10 @@ tbody tr:hover,
 
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-tabs {
+    padding: 12px 16px 0;
   }
 
   .connection-form {
