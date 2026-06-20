@@ -1,10 +1,28 @@
 import { apiRequest } from './client'
-import type { UserResponse } from '../types/user'
+import type {
+  CreateEnvironmentRequest,
+  EnvironmentBaseImage,
+  UserResponse,
+} from '../types/user'
 
-export function createUserEnvironment(userId: string, currentUserId: string) {
+export function getEnvironmentBaseImages(currentUserId: string) {
+  return apiRequest<EnvironmentBaseImage[]>('/api/environment-base-images', {
+    userId: currentUserId,
+  })
+}
+
+export function createUserEnvironment(
+  userId: string,
+  currentUserId: string,
+  request: CreateEnvironmentRequest = {},
+) {
   return apiRequest<UserResponse>(
     `/api/users/${encodeURIComponent(userId)}/environment`,
-    { method: 'POST', userId: currentUserId },
+    {
+      method: 'POST',
+      body: request,
+      userId: currentUserId,
+    },
   )
 }
 

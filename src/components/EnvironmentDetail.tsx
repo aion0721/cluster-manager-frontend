@@ -79,6 +79,14 @@ export function EnvironmentDetail({
           <dd>{environment.service ?? '-'}</dd>
         </div>
         <div>
+          <dt>baseImage</dt>
+          <dd>{environment.baseImage ?? '-'}</dd>
+        </div>
+        <div>
+          <dt>image</dt>
+          <dd>{environment.image ?? '-'}</dd>
+        </div>
+        <div>
           <dt>status</dt>
           <dd>
             <span className={`status-pill ${statusClassName(environment.status ?? environment.phase)}`}>

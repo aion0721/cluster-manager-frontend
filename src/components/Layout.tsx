@@ -7,8 +7,17 @@ type LayoutProps = {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { authMode, currentUserId, logout } = useUser()
+  const { authMode, authReady, currentUserId, login, logout } = useUser()
   const navigate = useNavigate()
+
+  async function handleLogin() {
+    if (authMode === 'keycloak') {
+      await login('/')
+      return
+    }
+
+    navigate('/')
+  }
 
   function handleLogout() {
     logout()
@@ -30,13 +39,24 @@ export function Layout({ children }: LayoutProps) {
         </div>
         <nav className="app-nav" aria-label="Primary">
           <NavLink to="/">Top</NavLink>
-          <NavLink to="/me">Me</NavLink>
-          <NavLink to="/admin">Admin</NavLink>
           {currentUserId ? (
-            <button type="button" className="secondary-button" onClick={handleLogout}>
-              {authMode === 'keycloak' ? 'Logout' : 'Change userId'}
+            <>
+              <NavLink to="/me">Me</NavLink>
+              <NavLink to="/admin">Admin</NavLink>
+              <button type="button" className="secondary-button" onClick={handleLogout}>
+                {authMode === 'keycloak' ? 'Logout' : 'Change userId'}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleLogin}
+              disabled={!authReady}
+            >
+              Login
             </button>
-          ) : null}
+          )}
         </nav>
       </header>
       <main>{children}</main>

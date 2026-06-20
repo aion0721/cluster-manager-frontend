@@ -5,6 +5,18 @@ export type CreateUserRequest = {
   displayName: string
 }
 
+export type CreateEnvironmentRequest = {
+  baseImage?: string
+}
+
+export type EnvironmentBaseImage = {
+  id: string
+  label: string
+  description?: string | null
+  default?: boolean
+  image?: string | null
+}
+
 export type UserStatus =
   | 'READY'
   | 'USER_READY'
@@ -23,6 +35,8 @@ export type UserResponse = {
   serviceAccount?: string | null
   deployment?: string | null
   service?: string | null
+  baseImage?: string | null
+  image?: string | null
   status?: UserStatus
   createdAt?: string
   labels?: Record<string, string>

@@ -41,6 +41,8 @@ export function HomePage() {
   }
 
   if (authMode === 'keycloak') {
+    const loggedIn = Boolean(currentUserId)
+
     return (
       <div className="entry-layout">
         <section className="card entry-card">
@@ -58,20 +60,55 @@ export function HomePage() {
           ) : null}
 
           <div className="button-row">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => enterWithKeycloak('/me')}
-              disabled={!authReady}
-            >
+            {loggedIn ? (
+              <>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => enterWithKeycloak('/me')}
+                  disabled={!authReady}
+                >
+                  Go to Me
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => enterWithKeycloak('/admin')}
+                  disabled={!authReady}
+                >
+                  Go to Admin
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => login('/')}
+                disabled={!authReady}
+              >
+                Login
+              </button>
+            )}
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  if (currentUserId) {
+    return (
+      <div className="entry-layout">
+        <section className="card entry-card">
+          <div className="section-heading">
+            <p className="eyebrow">MVP Login</p>
+            <h2>{currentUserId}</h2>
+            <p>この userId で操作中です。</p>
+          </div>
+          <div className="button-row">
+            <button type="button" className="primary-button" onClick={() => navigate('/me')}>
               Go to Me
             </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => enterWithKeycloak('/admin')}
-              disabled={!authReady}
-            >
+            <button type="button" className="secondary-button" onClick={() => navigate('/admin')}>
               Go to Admin
             </button>
           </div>
@@ -108,10 +145,7 @@ export function HomePage() {
           {error ? <p className="error-text">{error}</p> : null}
           <div className="button-row">
             <button type="submit" className="primary-button">
-              Go to Me
-            </button>
-            <button type="button" className="secondary-button" onClick={() => enter('/admin')}>
-              Go to Admin
+              Login
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   createUserEnvironment,
   deleteUserEnvironment,
+  getEnvironmentBaseImages,
 } from '../api/environments'
 import { getUser, getUsers, reconcileUser } from '../api/users'
 import { EnvironmentCreatePanel } from '../components/EnvironmentCreatePanel'
@@ -9,7 +10,7 @@ import { EnvironmentDetail } from '../components/EnvironmentDetail'
 import { EnvironmentList } from '../components/EnvironmentList'
 import { PortForwardCommand } from '../components/PortForwardCommand'
 import { useUser } from '../context/useUser'
-import type { UserResponse } from '../types/user'
+import type { EnvironmentBaseImage, UserResponse } from '../types/user'
 import { adminErrorMessage } from './adminErrors'
 
 export function AdminPodsPage() {
@@ -17,7 +18,9 @@ export function AdminPodsPage() {
   const [environments, setEnvironments] = useState<UserResponse[]>([])
   const [selectedUserId, setSelectedUserId] = useState<string>()
   const [selectedEnvironment, setSelectedEnvironment] = useState<UserResponse>()
+  const [baseImages, setBaseImages] = useState<EnvironmentBaseImage[]>([])
   const [loading, setLoading] = useState(false)
+  const [baseImagesLoading, setBaseImagesLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [createRunning, setCreateRunning] = useState(false)
   const [actionRunning, setActionRunning] = useState(false)
@@ -51,12 +54,12 @@ export function AdminPodsPage() {
     }
   }
 
-  async function handleCreate(userId: string) {
+  async function handleCreate(userId: string, baseImage?: string) {
     setCreateRunning(true)
     setError('')
 
     try {
-      await createUserEnvironment(userId, currentUserId)
+      await createUserEnvironment(userId, currentUserId, { baseImage })
       await loadEnvironments(userId)
     } catch (caught) {
       setError(adminErrorMessage(caught, 'Failed to create pod.'))
@@ -107,29 +110,35 @@ export function AdminPodsPage() {
 
     void Promise.resolve().then(async () => {
       setLoading(true)
+      setBaseImagesLoading(true)
       setError('')
 
       try {
-        const response = await getUsers(currentUserId)
+        const [usersResponse, baseImagesResponse] = await Promise.all([
+          getUsers(currentUserId),
+          getEnvironmentBaseImages(currentUserId),
+        ])
         if (cancelled) {
           return
         }
 
-        setEnvironments(response)
+        setEnvironments(usersResponse)
+        setBaseImages(baseImagesResponse)
         setSelectedUserId((currentSelectedUserId) => {
-          if (currentSelectedUserId && response.some((environment) => environment.userId === currentSelectedUserId)) {
+          if (currentSelectedUserId && usersResponse.some((environment) => environment.userId === currentSelectedUserId)) {
             return currentSelectedUserId
           }
 
-          return response[0]?.userId
+          return usersResponse[0]?.userId
         })
       } catch (caught) {
         if (!cancelled) {
-          setError(adminErrorMessage(caught, 'Failed to load pods.'))
+          setError(adminErrorMessage(caught, 'Failed to load pods or base images.'))
         }
       } finally {
         if (!cancelled) {
           setLoading(false)
+          setBaseImagesLoading(false)
         }
       }
     })
@@ -182,6 +191,8 @@ export function AdminPodsPage() {
       <div className="left-column">
         <EnvironmentCreatePanel
           users={environments}
+          baseImages={baseImages}
+          baseImagesLoading={baseImagesLoading}
           disabled={createRunning}
           onCreate={handleCreate}
         />

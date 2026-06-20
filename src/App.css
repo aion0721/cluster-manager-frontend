@@ -273,13 +273,30 @@ dt {
   text-transform: uppercase;
 }
 
-input {
+input,
+select {
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
   font: inherit;
   padding: 10px 12px;
+}
+
+.inline-info {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.inline-info span,
+.inline-info code {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 button {
