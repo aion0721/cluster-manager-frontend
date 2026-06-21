@@ -7,6 +7,7 @@ import {
   reconcileUser,
 } from '../api/users'
 import { UserCreateForm } from '../components/UserCreateForm'
+import { UserCsvCreateForm } from '../components/UserCsvCreateForm'
 import { UserDetail } from '../components/UserDetail'
 import { UserList } from '../components/UserList'
 import { useUser } from '../context/useUser'
@@ -56,6 +57,22 @@ export function AdminUsersPage() {
       await loadUsers(request.userId)
     } catch (caught) {
       setError(adminErrorMessage(caught, 'Failed to create user.'))
+    } finally {
+      setCreateRunning(false)
+    }
+  }
+
+  async function handleCreateMany(requests: CreateUserRequest[]) {
+    setCreateRunning(true)
+    setError('')
+
+    try {
+      for (const request of requests) {
+        await createUser(request, currentUserId)
+      }
+      await loadUsers(requests.at(-1)?.userId)
+    } catch (caught) {
+      setError(adminErrorMessage(caught, 'CSVからのユーザ登録に失敗しました。'))
     } finally {
       setCreateRunning(false)
     }
@@ -177,6 +194,7 @@ export function AdminUsersPage() {
 
       <div className="left-column">
         <UserCreateForm disabled={createRunning} onCreate={handleCreate} />
+        <UserCsvCreateForm disabled={createRunning} onCreateMany={handleCreateMany} />
       </div>
 
       <div className="right-column">
