@@ -6,6 +6,23 @@ The frontend calls Backend APIs with relative `/api/...` paths. In development, 
 
 The nginx container only serves static React assets. It does not proxy `/api`.
 
+## Features
+
+- `/me`
+  - Shows the current user's connection guide.
+  - Displays namespace, ServiceAccount, dev-container endpoint, token/setup command actions, and connection information returned by Backend APIs.
+- `/admin/users`
+  - Creates and manages user identity resources.
+  - User creation is expected to provision user-side resources only: Namespace when applicable, ServiceAccount, and RBAC.
+  - It does not create the dev-container workload.
+- `/admin/pods`
+  - Creates and manages a user's dev-container environment.
+  - The Backend implementation uses Deployment + Service, while the UI labels this operational area as Pods/dev-container environments.
+  - Lets admins select a base image from the Backend allow-list when creating an environment.
+- Authentication-aware navigation
+  - Signed-out users see a login entry point.
+  - Signed-in users see `Me` and `Admin` navigation.
+
 ## Local Development
 
 ```powershell
@@ -15,6 +32,16 @@ yarn dev
 ```
 
 Backend is expected to run on `http://localhost:8080` during development.
+
+## Checks
+
+```powershell
+yarn test
+yarn lint
+yarn build
+```
+
+Tests use Vitest + React Testing Library. Current coverage focuses on admin user/environment workflows, login/navigation states, API request behavior, base image selection, and port-forward command handling.
 
 ## Authentication
 
@@ -49,6 +76,137 @@ http://cluster-manager.rp.local/
 ```
 
 The backend should use matching settings such as `CLUSTER_MANAGER_AUTH_MODE=keycloak`, `QUARKUS_OIDC_AUTH_SERVER_URL`, and `QUARKUS_OIDC_CLIENT_ID`.
+
+## Backend API Contract
+
+The frontend assumes the Backend owns all Kubernetes operations. The frontend never talks to the Kubernetes API directly.
+
+### Users
+
+```text
+GET /api/users
+GET /api/users/{userId}
+POST /api/users
+DELETE /api/users/{userId}
+POST /api/users/{userId}/reconcile
+```
+
+`POST /api/users` accepts:
+
+```json
+{
+  "userId": "alice",
+  "displayName": "Alice"
+}
+```
+
+Expected behavior:
+
+- Creates user-side resources only.
+- Namespace mode: Namespace + ServiceAccount + RBAC.
+- Container-only mode: ServiceAccount + RBAC.
+- Does not create Deployment or Service.
+- `displayName` may be stored by the Backend in annotations, but should be returned as `displayName`.
+
+`GET /api/users` and `GET /api/users/{userId}` should return user-side resources even when the dev-container environment has not been created yet. In that case:
+
+```json
+{
+  "userId": "alice",
+  "displayName": "Alice",
+  "namespace": "alice",
+  "serviceAccount": "alice-sa",
+  "deployment": null,
+  "service": null,
+  "devcontainerEndpoint": null,
+  "status": "USER_READY"
+}
+```
+
+Status values currently expected by the UI:
+
+- `READY`: user resources and environment resources are present.
+- `USER_READY`: user resources are present, environment is not created.
+- `PARTIAL`: only some expected resources exist.
+- `MISSING`: user is missing or detail endpoint returns 404.
+- `DELETING`: deletion is in progress.
+
+### Environments
+
+```text
+GET /api/environment-base-images
+POST /api/users/{userId}/environment
+DELETE /api/users/{userId}/environment
+GET /api/users/{userId}/port-forward-command
+```
+
+`GET /api/environment-base-images` returns the allowed base image catalog:
+
+```json
+[
+  {
+    "id": "ubuntu-dev",
+    "label": "Ubuntu",
+    "description": "Basic Ubuntu development environment",
+    "default": true
+  },
+  {
+    "id": "node-dev",
+    "label": "Node.js 22",
+    "description": "Node.js development tools"
+  }
+]
+```
+
+The Backend may include `image` in this response when configured to expose it:
+
+```json
+{
+  "id": "node-dev",
+  "label": "Node.js 22",
+  "image": "ghcr.io/example/dev-node:22"
+}
+```
+
+`POST /api/users/{userId}/environment` sends the selected catalog id, not the real container image:
+
+```json
+{
+  "baseImage": "node-dev"
+}
+```
+
+Expected behavior:
+
+- Backend validates `baseImage` against its allow-list.
+- Unknown ids return 400.
+- If `baseImage` is omitted, Backend uses its configured default image.
+- Backend resolves the id to the real image and creates Deployment + Service.
+- The Deployment should use the user's ServiceAccount.
+
+Environment detail responses may include:
+
+```json
+{
+  "userId": "alice",
+  "namespace": "alice",
+  "serviceAccount": "alice-sa",
+  "deployment": "devcontainer-alice",
+  "service": "devcontainer-alice",
+  "baseImage": "node-dev",
+  "image": "ghcr.io/example/dev-node:22",
+  "devcontainerEndpoint": {
+    "nodePort": 30222,
+    "sshHost": "cluster.example.local",
+    "sshCommand": "ssh ..."
+  },
+  "status": "READY"
+}
+```
+
+`DELETE /api/users/{userId}/environment` deletes Service + Deployment but leaves user-side resources in place.
+
+`GET /api/users/{userId}/port-forward-command` is used by the Pods admin page when an environment exists. Namespace mode can return a port-forward command. Container-only mode can return connection guide data through `devcontainerEndpoint`.
 
 ## Container Files
 
