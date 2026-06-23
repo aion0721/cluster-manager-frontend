@@ -3,11 +3,13 @@ import type { ReactNode } from 'react'
 import { setAccessTokenProvider, USER_ID_STORAGE_KEY } from '../api/client'
 import { authMode, isKeycloakAuthMode } from '../auth/config'
 import {
+  type OidcTokenSet,
   clearStoredTokenSet,
   completeLoginCallback,
   getStoredTokenSet,
   getUserIdFromToken,
   logoutFromKeycloak,
+  refreshAccessToken,
   startLogin,
 } from '../auth/oidc'
 import { UserContext } from './userContextValue'
@@ -17,16 +19,21 @@ type UserProviderProps = {
 }
 
 export function UserProvider({ children }: UserProviderProps) {
-  const [accessToken, setAccessToken] = useState<string>()
-  const [idToken, setIdToken] = useState<string>()
+  const [tokenSet, setTokenSet] = useState<OidcTokenSet>()
   const [authReady, setAuthReady] = useState(authMode === 'simple')
   const [currentUserId, setCurrentUserIdState] = useState(
     () => authMode === 'simple' ? sessionStorage.getItem(USER_ID_STORAGE_KEY) ?? '' : '',
   )
 
   useEffect(() => {
-    setAccessTokenProvider(() => accessToken)
-  }, [accessToken])
+    setAccessTokenProvider(() => tokenSet?.accessToken)
+  }, [tokenSet])
+
+  const applyTokenSet = useCallback((nextTokenSet: OidcTokenSet) => {
+    setAccessTokenProvider(() => nextTokenSet.accessToken)
+    setTokenSet(nextTokenSet)
+    setCurrentUserIdState(getUserIdFromToken(nextTokenSet.accessToken))
+  }, [])
 
   useEffect(() => {
     if (!isKeycloakAuthMode) {
@@ -38,15 +45,26 @@ export function UserProvider({ children }: UserProviderProps) {
     void Promise.resolve().then(async () => {
       try {
         const callbackTokenSet = await completeLoginCallback()
-        const tokenSet = callbackTokenSet ?? getStoredTokenSet()
-        if (!tokenSet || cancelled) {
+        const storedTokenSet = callbackTokenSet ?? getStoredTokenSet()
+        if (!storedTokenSet || cancelled) {
           return
         }
 
-        setAccessTokenProvider(() => tokenSet.accessToken)
-        setAccessToken(tokenSet.accessToken)
-        setIdToken(tokenSet.idToken)
-        setCurrentUserIdState(getUserIdFromToken(tokenSet.accessToken))
+        const activeTokenSet =
+          storedTokenSet.expiresAt <= Date.now() && storedTokenSet.refreshToken
+            ? await refreshAccessToken(storedTokenSet)
+            : storedTokenSet
+
+        if (!cancelled) {
+          applyTokenSet(activeTokenSet)
+        }
+      } catch {
+        if (!cancelled) {
+          clearStoredTokenSet()
+          setAccessTokenProvider(() => undefined)
+          setTokenSet(undefined)
+          setCurrentUserIdState('')
+        }
       } finally {
         if (!cancelled) {
           setAuthReady(true)
@@ -57,7 +75,47 @@ export function UserProvider({ children }: UserProviderProps) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [applyTokenSet])
+
+  useEffect(() => {
+    if (!isKeycloakAuthMode || !tokenSet) {
+      return
+    }
+
+    let cancelled = false
+    const refreshMarginMs = 30_000
+    const delay = Math.max(tokenSet.expiresAt - Date.now() - refreshMarginMs, 0)
+
+    const timer = window.setTimeout(() => {
+      if (!tokenSet.refreshToken) {
+        clearStoredTokenSet()
+        setAccessTokenProvider(() => undefined)
+        setTokenSet(undefined)
+        setCurrentUserIdState('')
+        return
+      }
+
+      void refreshAccessToken(tokenSet)
+        .then((refreshedTokenSet) => {
+          if (!cancelled) {
+            applyTokenSet(refreshedTokenSet)
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            clearStoredTokenSet()
+            setAccessTokenProvider(() => undefined)
+            setTokenSet(undefined)
+            setCurrentUserIdState('')
+          }
+        })
+    }, delay)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [applyTokenSet, tokenSet])
 
   const setCurrentUserId = useCallback((userId: string) => {
     if (isKeycloakAuthMode) {
@@ -71,8 +129,7 @@ export function UserProvider({ children }: UserProviderProps) {
     if (isKeycloakAuthMode) {
       clearStoredTokenSet()
       setAccessTokenProvider(() => undefined)
-      setAccessToken(undefined)
-      setIdToken(undefined)
+      setTokenSet(undefined)
       setCurrentUserIdState('')
       return
     }
@@ -90,14 +147,13 @@ export function UserProvider({ children }: UserProviderProps) {
   const logout = useCallback(() => {
     if (isKeycloakAuthMode) {
       setAccessTokenProvider(() => undefined)
-      logoutFromKeycloak(idToken)
-      setAccessToken(undefined)
-      setIdToken(undefined)
+      logoutFromKeycloak(tokenSet?.idToken)
+      setTokenSet(undefined)
       setCurrentUserIdState('')
       return
     }
     clearCurrentUserId()
-  }, [clearCurrentUserId, idToken])
+  }, [clearCurrentUserId, tokenSet?.idToken])
 
   const value = useMemo(
     () => ({

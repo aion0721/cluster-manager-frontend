@@ -3,7 +3,9 @@ import { keycloakConfig, requireKeycloakConfig } from './config'
 export type OidcTokenSet = {
   accessToken: string
   idToken?: string
+  refreshToken?: string
   expiresAt: number
+  refreshExpiresAt?: number
 }
 
 const callbackStateKey = 'cluster-manager.oidc.state'
@@ -18,10 +20,21 @@ export function getStoredTokenSet(): OidcTokenSet | undefined {
 
   try {
     const tokenSet = JSON.parse(raw) as OidcTokenSet
-    if (!tokenSet.accessToken || tokenSet.expiresAt <= Date.now()) {
+    if (!tokenSet.accessToken) {
       clearStoredTokenSet()
       return undefined
     }
+
+    if (tokenSet.refreshExpiresAt && tokenSet.refreshExpiresAt <= Date.now()) {
+      clearStoredTokenSet()
+      return undefined
+    }
+
+    if (!tokenSet.refreshToken && tokenSet.expiresAt <= Date.now()) {
+      clearStoredTokenSet()
+      return undefined
+    }
+
     return tokenSet
   } catch {
     clearStoredTokenSet()
@@ -103,13 +116,11 @@ export async function completeLoginCallback() {
   const payload = await response.json() as {
     access_token: string
     id_token?: string
+    refresh_token?: string
     expires_in?: number
+    refresh_expires_in?: number
   }
-  const tokenSet = {
-    accessToken: payload.access_token,
-    idToken: payload.id_token,
-    expiresAt: Date.now() + ((payload.expires_in ?? 300) - 15) * 1000,
-  }
+  const tokenSet = tokenSetFromPayload(payload)
 
   storeTokenSet(tokenSet)
   sessionStorage.removeItem(callbackStateKey)
@@ -117,6 +128,43 @@ export async function completeLoginCallback() {
   window.history.replaceState({}, document.title, storedCallbackState.returnPath)
 
   return tokenSet
+}
+
+export async function refreshAccessToken(tokenSet: OidcTokenSet) {
+  requireKeycloakConfig()
+
+  if (!tokenSet.refreshToken) {
+    throw new Error('Refresh token is not available.')
+  }
+
+  const response = await fetch(`${keycloakConfig.authServerUrl}/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: keycloakConfig.clientId,
+      refresh_token: tokenSet.refreshToken,
+    }),
+  })
+
+  if (!response.ok) {
+    clearStoredTokenSet()
+    throw new Error(`Token refresh failed: ${response.status} ${response.statusText}`)
+  }
+
+  const payload = await response.json() as {
+    access_token: string
+    id_token?: string
+    refresh_token?: string
+    expires_in?: number
+    refresh_expires_in?: number
+  }
+  const refreshedTokenSet = tokenSetFromPayload(payload, tokenSet)
+
+  storeTokenSet(refreshedTokenSet)
+  return refreshedTokenSet
 }
 
 export function logoutFromKeycloak(idToken?: string) {
@@ -152,6 +200,30 @@ function readCallbackState() {
 
 function redirectUri() {
   return window.location.origin + '/'
+}
+
+function tokenSetFromPayload(
+  payload: {
+    access_token: string
+    id_token?: string
+    refresh_token?: string
+    expires_in?: number
+    refresh_expires_in?: number
+  },
+  previousTokenSet?: OidcTokenSet,
+): OidcTokenSet {
+  const now = Date.now()
+  const refreshToken = payload.refresh_token ?? previousTokenSet?.refreshToken
+
+  return {
+    accessToken: payload.access_token,
+    idToken: payload.id_token ?? previousTokenSet?.idToken,
+    refreshToken,
+    expiresAt: now + Math.max((payload.expires_in ?? 300) - 15, 0) * 1000,
+    refreshExpiresAt: payload.refresh_expires_in
+      ? now + Math.max(payload.refresh_expires_in - 15, 0) * 1000
+      : previousTokenSet?.refreshExpiresAt,
+  }
 }
 
 function parseJwtClaims(token: string) {
